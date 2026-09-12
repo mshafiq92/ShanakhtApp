@@ -6,8 +6,8 @@ Guidance for Claude Code when working in this repository.
 
 Shanakht (شناخت) is a bilingual (Urdu/English) chatbot that gives Pakistani citizens
 plain-language guidance on CNIC (NADRA) and passport (DGIP) processes. Built for the
-PakAngels GenAI hackathon. Full requirements live in `docs/Shanakht_PRD.md`; the staged
-task list lives in `docs/PROMPTS.md`.
+PakAngels GenAI hackathon. Full requirements live in `docs/Shanakht_PRD.md`; the full
+build story, tools, and architecture live in `docs/APPLICATION_JOURNEY.md`.
 
 Stack: Gradio `ChatInterface` (`app.py`) + Google Gemini via the `google-genai` SDK,
 grounded by a hand-curated knowledge base (`knowledge.py`) injected into the system
@@ -19,11 +19,12 @@ prompt. No RAG, no database, no user accounts.
    (using NADRA records for identity). Never say NADRA issues the passport, or blur
    the two agencies together.
 2. **Never invent facts.** Answers must come from `knowledge.py` plus well-known public
-   facts about these specific topics. If a fee, timeline, or rule is missing, tagged
-   `[CONFIRM]`/`[REPLACE WITH VERIFIED FIGURES]`, or the question is outside CNIC/passport/
-   NADRA/DGIP scope, say so and point to the official site rather than guessing.
-   - This applies to me (Claude Code) too: never fill in a placeholder fee/timeline with
-     a guessed number. Ask the user for the verified figure.
+   facts about these specific topics. If a fee, timeline, or rule is missing, or the
+   question is outside CNIC/passport/NADRA/DGIP scope, say so and point to the official
+   site rather than guessing.
+   - This applies to me (Claude Code) too: never fill in a fee or timeline with a
+     guessed number. Research it from official sources or ask the user for the
+     verified figure, the way the current figures in `knowledge.py` were sourced.
 3. **Reply in the user's language.** Same language they wrote in (Urdu, English, or
    Roman Urdu). This must keep working through any change to prompt, streaming, or
    grounding logic.
@@ -40,14 +41,14 @@ prompt. No RAG, no database, no user accounts.
 8. **Keep it a helper, not an authority.** Shanakht does not process applications, take
    payments, or give legal rulings. Do not add features that imply otherwise.
 
-If any task prompt (including those in `docs/PROMPTS.md`) conflicts with a rule above,
-the rule above wins — flag the conflict instead of silently resolving it.
+If any request conflicts with a rule above, the rule above wins — flag the conflict
+instead of silently resolving it.
 
 ## Working style for this repo
 
-- Work in the small, incremental steps described in `docs/PROMPTS.md`. Show diffs/changes
-  before wiring up anything that touches the model call, streaming, or the system prompt,
-  and wait for confirmation on anything non-trivial.
+- Work in small, incremental steps. Show diffs/changes before wiring up anything that
+  touches the model call, streaming, or the system prompt, and wait for confirmation on
+  anything non-trivial.
 - Never put an API key in code, docs, or git history. `GEMINI_API_KEY` is an environment
   variable locally and a Space secret on Hugging Face — nowhere else.
 - Keep `requirements.txt` minimal; only add a package if the task truly needs it.
@@ -71,5 +72,10 @@ the rule above wins — flag the conflict instead of silently resolving it.
   prebuilt wheels for some dependencies).
 - **Deployed and live** at https://shanakhtapp.onrender.com (Render free tier — see
   README.md section 3 for why Render instead of HF Spaces, and its cold-start tradeoff).
-- Not yet done: self-test script, demo script. See `docs/PROMPTS.md` for the order of
-  these remaining tasks.
+- `test_app.py`: wiring tests (message history parsing, source formatting, error
+  handling) with a mocked client — no API key or network needed. Run with
+  `python test_app.py`.
+- `docs/TEST_CHECKLIST.md`: plain-language accuracy checklist to run against the live
+  app. `docs/DEMO_SCRIPT.md`: the live demo script and backup screenshot list.
+- Everything in the original task list is done. See `docs/APPLICATION_JOURNEY.md` for
+  the full build story if picking this project back up later.
