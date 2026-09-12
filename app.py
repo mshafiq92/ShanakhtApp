@@ -305,4 +305,12 @@ with gr.Blocks(title="Shanakht (شناخت): CNIC & Passport Assistant") as demo
     )
 
 if __name__ == "__main__":
-    demo.launch(theme=gr.themes.Soft(), css=CUSTOM_CSS)
+    # 0.0.0.0 + the platform's PORT env var is required on hosts like Render or Cloud
+    # Run, which route traffic to a container by port and expect it to listen on all
+    # interfaces. Falls back to the usual local port when PORT isn't set.
+    demo.launch(
+        theme=gr.themes.Soft(),
+        css=CUSTOM_CSS,
+        server_name="0.0.0.0",
+        server_port=int(os.environ.get("PORT", 7860)),
+    )
