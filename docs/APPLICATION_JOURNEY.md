@@ -152,6 +152,15 @@ generous free amount is included before any charge applies. Since the project's 
 is to run on free tools with no cost, this feature now defaults to off, and turning
 it on is a deliberate choice, not the default.
 
+**The free daily quota turned out to be very small.** Google also cut back its free
+usage limits broadly in December 2025, and a brand new project like this one starts
+with a low daily cap, twenty requests a day for this model, rather than the much
+higher number quoted in general Gemini documentation. A single afternoon of building
+and testing is enough to use up a whole day's worth. This is worth knowing before a
+live demo. The safest habit is to stop testing a few hours before presenting, so the
+day's quota is still there when it actually matters, and to check the quota page at
+aistudio.google.com beforehand to see exactly how much is left.
+
 ---
 
 ## 6. Getting it online, and why the plan changed
@@ -274,6 +283,7 @@ written into the code itself, and never pushed to GitHub.
 | Web search grounding on by default | Off by default, one setting to enable | Google now requires a billing linked account for this feature |
 | Placeholder fee figures | Real, sourced figures | Researched from official sites and cross checked public sources before launch |
 | Default Python version on host | Pinned to Python 3.12 | The host's newer default made builds very slow |
+| Assumed a normal free daily usage limit | Twenty requests a day on this project | Google cut free quotas broadly in December 2025, and new projects start lower |
 
 ---
 

@@ -15,6 +15,10 @@ to show what already works.
   Google now requires a billing linked account to use it. If you have not linked
   billing, skip the web search part of the script below and go straight from the
   process demo to the impact statement.
+- The free Gemini quota for a new project is only twenty messages a day. Stop testing
+  the app a few hours before your slot, so the quota is still there when the judges
+  actually see it. Check how much is left at aistudio.google.com under your API key's
+  Quota section before you go on.
 
 ---
 
