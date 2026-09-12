@@ -46,15 +46,32 @@ and open the local link it prints (usually http://127.0.0.1:7860).
 `.env` — `export GEMINI_API_KEY="your_key_here"` on Linux/Mac, or
 `$env:GEMINI_API_KEY = "your_key_here"` in PowerShell.)
 
-## 3. Deploy free on Hugging Face Spaces (public link for the demo)
+## 3. Deploy for a public demo link
 
-1. Make a free account at huggingface.co.
-2. Click New, then Space. Choose the Gradio SDK. Give it a name.
-3. Push this repo to the Space with git (or upload the files through the web UI).
-4. In the Space, go to Settings, then Variables and secrets, and add a secret:
-   name `GEMINI_API_KEY`, value your key. Do **not** upload your `.env` file — it is
-   gitignored on purpose and Spaces secrets are the correct place for the key.
-5. The Space builds and runs automatically and gives you a public URL for the demo.
+**Live demo:** https://shanakhtapp.onrender.com (Render, free tier)
+
+As of September 2026, Hugging Face Spaces requires a paid plan to run a Gradio SDK Space
+on CPU Basic (a policy change from mid-2026 — Static Spaces are still free, but a Gradio
+app is not), so this project deploys to **Render** instead:
+
+1. Make a free account at render.com (GitHub sign-in is easiest).
+2. New → Web Service → Public Git Repository → paste this repo's URL.
+3. Render auto-detects Python. Set:
+   - **Start Command**: `python app.py` (Render's default `gunicorn` placeholder is wrong
+     for a Gradio app — replace it).
+   - **Instance type**: Free.
+4. Add an environment variable: name `GEMINI_API_KEY`, value your key (use "Add from
+   .env" to import it directly instead of retyping it). Do **not** commit your `.env`
+   file — it is gitignored on purpose.
+5. Deploy. Render currently requires a card on file even for the free tier (a temporary
+   $1 authorization hold, not a real charge — standard anti-abuse verification, same as
+   most cloud free tiers now use).
+6. Free instances spin down after inactivity; the first request after idle time can take
+   ~30-60s to wake back up. Open the link yourself a few minutes before a live demo so
+   it's already warm.
+
+`.python-version` pins Python to 3.12 in this repo — Render's newer default (3.14 at the
+time of writing) lacks prebuilt wheels for some dependencies, making builds much slower.
 
 ## 4. Edit what the bot knows
 

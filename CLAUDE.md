@@ -54,15 +54,22 @@ the rule above wins — flag the conflict instead of silently resolving it.
 - `knowledge.py` is content, not code — prefer asking the user for verified figures over
   editing its facts yourself.
 - This is a free-tier demo app: keep dependencies and architecture simple enough to run
-  on Hugging Face Spaces' free tier without extra services.
+  on a free hosting tier without extra services. Deployment target is Render (see below),
+  not Hugging Face Spaces — HF now requires a paid plan for a Gradio SDK Space.
 
 ## Current state (update as work progresses)
 
-- `app.py`: working Gradio chat UI with streaming Gemini responses and the system prompt
-  encoding the rules above.
+- `app.py`: working Gradio chat UI with streaming Gemini responses, the system prompt
+  encoding the rules above, optional Google Search grounding (off by default — requires
+  a billed Google Cloud project), and a UI polish pass (theme, RTL-aware Urdu rendering,
+  logo, mobile fixes). Binds to `0.0.0.0` + the platform `PORT` env var for hosting
+  outside Hugging Face.
 - `knowledge.py`: FAQ content complete, including fee/timeline figures for CNIC, FRC,
   passport, and the PTA SIM-check method (sourced from official sites where reachable,
   cross-checked across independent sources otherwise — see the file's own header note).
-- Not yet done: live web search grounding, UI polish pass, `.gitignore`/GitHub prep,
-  Hugging Face deployment, self-test script, demo script. See `docs/PROMPTS.md` for the
-  order of these tasks.
+- `.python-version` pins Python 3.12 for deployment (Render's newer default lacked
+  prebuilt wheels for some dependencies).
+- **Deployed and live** at https://shanakhtapp.onrender.com (Render free tier — see
+  README.md section 3 for why Render instead of HF Spaces, and its cold-start tradeoff).
+- Not yet done: self-test script, demo script. See `docs/PROMPTS.md` for the order of
+  these remaining tasks.
