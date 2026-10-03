@@ -254,6 +254,14 @@ OFFICIAL_LINKS = [
     ("CNIC tracking", "https://id.nadra.gov.pk"),
 ]
 NADRA_HELPLINE = "1777"
+FOOTER_MD = (
+    "Shanakht is a helper, not an official source. Always verify on nadra.gov.pk and "
+    "dgip.gov.pk.\n\n"
+    + " · ".join(f"[{label}]({url})" for label, url in OFFICIAL_LINKS[:3])
+    + f" · Helpline {NADRA_HELPLINE}\n\n"
+    "<small>Built by Team Shanakht for the PakAngels GenAI and Agentic AI Training Program "
+    "hackathon.</small>"
+)
 CNIC_FEE_TABLE_MD = (
     "**CNIC (NADRA)**\n\n"
     "| Category | Fee | Timeline |\n"
@@ -374,7 +382,13 @@ with gr.Blocks(
             (question, gr.Button(label, size="sm", variant="secondary", elem_classes="category-chip"))
             for label, question in CATEGORY_CHIPS.items()
         ]
-    message_box = gr.Textbox(show_label=False, placeholder="Type your question here...", render=False)
+    message_box = gr.Textbox(
+        show_label=False,
+        placeholder="Type your question here...",
+        submit_btn=True,
+        stop_btn=True,
+        render=False,
+    )
     gr.ChatInterface(
         fn=respond,
         chatbot=gr.Chatbot(
@@ -393,6 +407,7 @@ with gr.Blocks(
     with gr.Accordion("Fee and timeline quick reference", open=False):
         gr.Markdown(CNIC_FEE_TABLE_MD)
         gr.Markdown(PASSPORT_FEE_TABLE_MD)
+    gr.Markdown(FOOTER_MD)
 
 if __name__ == "__main__":
     # 0.0.0.0 + the platform's PORT env var is required on hosts like Render or Cloud
