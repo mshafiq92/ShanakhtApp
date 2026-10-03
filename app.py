@@ -223,7 +223,7 @@ DESCRIPTION = (
 # of the "Shanakht" title, already shown in the header card above) since a taller
 # placeholder can get clipped in the chatbot's centered box on short mobile screens.
 CHATBOT_PLACEHOLDER = (
-    "Ask your question in **Urdu** or **English** — مجھ سے اردو یا انگریزی میں سوال پوچھیں۔"
+    "Ask your question in **Urdu** or **English**, مجھ سے اردو یا انگریزی میں سوال پوچھیں۔"
 )
 
 # A balanced mix of Urdu, Roman Urdu, and English, covering both CNIC and passport.
@@ -270,21 +270,36 @@ LOGO_SVG = """
 </svg>
 """
 
+GREEN = gr.themes.Color(
+    c50="#EEF7F2", c100="#D5EDE0", c200="#AEDCC4", c300="#7CC4A0",
+    c400="#4DA97E", c500="#1B8A5A", c600="#177650", c700="#125F42",
+    c800="#0B4F32", c900="#093D28", c950="#05271A", name="shanakht-green",
+)
+GOLD = gr.themes.Color(
+    c50="#FBF7E8", c100="#F5ECC6", c200="#EDDC95", c300="#E3CA65",
+    c400="#D8B840", c500="#C9A227", c600="#A8841E", c700="#86681A",
+    c800="#654E15", c900="#463611", c950="#2A2109", name="shanakht-gold",
+)
+BRAND_THEME = gr.themes.Soft(primary_hue=GREEN, secondary_hue=GOLD, neutral_hue="slate")
+
 HEADER_HTML = f"""
 <div style="
-    display:flex; align-items:flex-start; gap:14px;
-    padding:16px 20px; margin-bottom:6px;
-    background:var(--block-background-fill);
-    border:1px solid var(--block-border-color);
+    display:flex; align-items:center; gap:16px;
+    padding:20px 22px; margin-bottom:8px;
+    background:linear-gradient(135deg, #0B4F32 0%, #1B8A5A 100%);
+    border-bottom:3px solid #C9A227;
     border-radius:var(--block-radius, 12px);
+    color:#FFFFFF;
 ">
-  <div style="color:var(--body-text-color); margin-top:2px;">{LOGO_SVG}</div>
+  <div style="flex-shrink:0; color:#C9A227;">{LOGO_SVG}</div>
   <div>
-    <div style="font-size:1.4rem; font-weight:600; line-height:1.25;">Shanakht (شناخت)</div>
-    <div style="font-size:0.9rem; color:var(--body-text-color-subdued); margin:2px 0 8px;">
-      CNIC &amp; Passport Assistant
+    <div style="font-size:1.6rem; font-weight:700; line-height:1.2;">
+      Shanakht <span style="font-weight:500;">(شناخت)</span>
     </div>
-    <div style="font-size:0.9rem; line-height:1.5; color:var(--body-text-color);">
+    <div style="font-size:0.95rem; opacity:0.9; margin:2px 0 8px;">
+      CNIC and Passport Assistant
+    </div>
+    <div style="font-size:0.9rem; line-height:1.5; opacity:0.95;">
       {DESCRIPTION}
     </div>
   </div>
@@ -309,7 +324,7 @@ if __name__ == "__main__":
     # Run, which route traffic to a container by port and expect it to listen on all
     # interfaces. Falls back to the usual local port when PORT isn't set.
     demo.launch(
-        theme=gr.themes.Soft(),
+        theme=BRAND_THEME,
         css=CUSTOM_CSS,
         server_name="0.0.0.0",
         server_port=int(os.environ.get("PORT", 7860)),
