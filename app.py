@@ -275,7 +275,7 @@ def user_turn(message, history):
 
 
 def bot_turn(history):
-    prior, question = history[:-1], history[-1]["content"]
+    prior, question = history[:-1], _extract_text(history[-1]["content"])
     for text, *chips in respond(question, prior):
         yield [*prior, {"role": "assistant", "content": text}], *chips
 

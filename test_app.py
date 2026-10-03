@@ -154,6 +154,15 @@ class ChatTurnTests(unittest.TestCase):
         self.assertEqual(out[0], "")
         self.assertEqual(out[1], [])
 
+    def test_question_stored_as_parts_list_is_sent_as_plain_text(self):
+        history = [{"role": "user", "content": [{"type": "text", "text": "How do I renew CNIC?"}]}]
+        client = MagicMock()
+        client.models.generate_content_stream.return_value = iter([make_chunk("Answer.")])
+        with patch("app.get_client", return_value=client):
+            list(app.bot_turn(history))
+        contents = client.models.generate_content_stream.call_args.kwargs["contents"]
+        self.assertEqual(contents[-1]["parts"][0]["text"], "How do I renew CNIC?")
+
     def test_turn_adds_question_then_answer_with_chips(self):
         history = app.user_turn("hi", [])[1]
         self.assertEqual(history, [{"role": "user", "content": "hi"}])
