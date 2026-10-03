@@ -254,7 +254,7 @@ CATEGORY_CHIPS = {
     "CNIC": "How do I apply for a new CNIC?",
     "Passport": "How do I apply for a new passport?",
     "Smart Card": "What is a Smart CNIC and how do I get one?",
-    "Overseas (NICOP and POC)": "How can I get a NICOP while living abroad?",
+    "NICOP & POC": "How can I get a NICOP while living abroad?",
     "Fees": "What are the current CNIC and passport fees?",
     "Tracking": "How do I track my CNIC or passport application?",
     "Safety": "What safety tips should I follow with my CNIC and passport?",
