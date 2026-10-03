@@ -18,6 +18,8 @@ from google import genai
 from google.genai import types
 from knowledge import KNOWLEDGE
 from fees import CNIC_CATEGORIES, CNIC_COURIER_FEE, PASSPORT_TIMELINES, rs
+from checklists import SERVICE_NAMES, build_checklist
+import tempfile
 
 
 def _load_dotenv():
@@ -211,6 +213,16 @@ def respond(message, history):
             "Please try again in a moment.\n\n"
             f"(Technical detail: {e})"
         )
+
+
+def make_checklist(service):
+    text = build_checklist(service)
+    slug = service.lower().replace(" ", "_").replace("(", "").replace(")", "")
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".txt", prefix=f"shanakht_{slug}_", delete=False, encoding="utf-8"
+    ) as f:
+        f.write(text)
+    return text, f.name
 
 
 DESCRIPTION = (
@@ -427,6 +439,19 @@ with gr.Blocks(
         button.click(lambda q=question: q, inputs=None, outputs=message_box)
     with gr.Accordion("Official links and helpline", open=False):
         gr.Markdown(OFFICIAL_LINKS_MD)
+    with gr.Accordion("Document checklist generator", open=False):
+        service_pick = gr.Dropdown(choices=SERVICE_NAMES, value=SERVICE_NAMES[0], label="Service")
+        generate_btn = gr.Button("Generate checklist", variant="primary")
+        checklist_text = gr.Textbox(
+            label="Checklist (English). You can paste any line into the chat to ask about it in Urdu.",
+            lines=18,
+            max_lines=30,
+            interactive=False,
+        )
+        download_btn = gr.DownloadButton("Download as .txt")
+        generate_btn.click(
+            fn=make_checklist, inputs=service_pick, outputs=[checklist_text, download_btn]
+        )
     with gr.Accordion("Fee and timeline quick reference", open=False):
         gr.Markdown(CNIC_FEE_TABLE_MD)
         gr.Markdown(PASSPORT_FEE_TABLE_MD)

@@ -159,5 +159,30 @@ class FeeSourceTests(unittest.TestCase):
         self.assertIn("dgip.gov.pk", app.PASSPORT_FEE_TABLE_MD)
 
 
+class ChecklistTests(unittest.TestCase):
+    def test_every_service_builds_with_verify_reminder(self):
+        from checklists import SERVICE_NAMES, SERVICES, build_checklist
+
+        for service in SERVICE_NAMES:
+            text = build_checklist(service)
+            self.assertIn(service, text)
+            self.assertIn("Verify the current fees", text)
+            self.assertIn(SERVICES[service]["agency"], text)
+
+    def test_missing_details_point_to_official_site(self):
+        from checklists import CHECK_OFFICIAL, build_checklist
+
+        text = build_checklist("NICOP")
+        self.assertIn(CHECK_OFFICIAL, text)
+
+    def test_new_passport_uses_fee_table(self):
+        from checklists import build_checklist
+        from fees import PASSPORT_MRP_FEES, rs
+
+        text = build_checklist("New passport")
+        self.assertIn(rs(PASSPORT_MRP_FEES[5][36][0]), text)
+        self.assertIn("Valid CNIC or NICOP", text)
+
+
 if __name__ == "__main__":
     unittest.main()
