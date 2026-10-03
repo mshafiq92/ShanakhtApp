@@ -2,8 +2,8 @@
 
 **Product name:** Shanakht (شناخت), the CNIC and Passport Public Assistant
 **Document status:** Draft for review
-**Version:** 1.0
-**Date:** September 12, 2026
+**Version:** 2.0
+**Date:** October 4, 2026
 **Owner:** Team Shanakht
 **Program:** PakAngels GenAI and Agentic AI Training Program, Cohort 11 (Hackathon)
 
@@ -125,7 +125,14 @@ passport processes in their own language, without needing an agent.
 | FR8 | The bot does not ask for sensitive data, and warns the user if they share a CNIC number, passport number, or OTP. | Must |
 | FR9 | The bot shows example questions to help users get started. | Should |
 | FR10 | The bot streams its reply so the user sees progress. | Should |
-| FR11 | The bot can call a live web search to ground answers in current information. | Could (stretch) |
+| FR11 | The bot can call a live web search to ground answers in current information. Built, but off by default because it needs a billing-linked Google Cloud project. | Could (stretch) |
+| FR12 | The chat has category quick-pick chips (CNIC, Passport, Smart Card, NICOP & POC, Fees, Tracking, Safety) that fill the input with a starter question. | Should |
+| FR13 | The bot suggests up to three follow-up questions after each answer, as chips the user can click to send. Built from the same reply, so it uses no extra model call. | Should |
+| FR14 | An official links and helpline panel lists the NADRA and DGIP sites, the Pak-ID portal, and helpline 1777. | Must |
+| FR15 | A fee and timeline quick reference shows CNIC and passport figures, drawn from one fee source so the chatbot and the table always agree. | Should |
+| FR16 | A document checklist generator gives a plain text checklist for ten services, with a download option. It only uses verified facts and says "check the official site" where the notes are silent. | Should |
+| FR17 | Answers have a copy button, and the layout works on phone widths. | Should |
+| FR18 | The interface uses a Pakistan identity colour theme, a clear hero header, and Urdu text that renders right to left. | Should |
 
 ---
 
@@ -190,9 +197,30 @@ with the language model's own knowledge, and an optional live web search tool.
 
 **Hosting and delivery:**
 
-- **Source control:** GitHub.
-- **Deployment:** Hugging Face Spaces (Gradio), which provides a free public link.
-- **Secrets:** the API key is stored as a Space secret, never in the code.
+- **Source control:** GitHub (https://github.com/mshafiq92/ShanakhtApp).
+- **Deployment:** Render free web service, which gives a free public link
+  (https://shanakhtapp.onrender.com). The original plan was Hugging Face Spaces, but
+  Gradio Spaces became a paid feature on the free CPU tier in mid 2026, so the app moved
+  to Render. Render sleeps the app after 15 minutes without traffic, so the first request
+  after a quiet period takes about 30 to 60 seconds. The app should be opened a few minutes
+  before a live demo.
+- **Secrets:** the API key is stored as a Render environment variable, never in the code
+  or the repository. Local development uses a `.env` file that git ignores.
+- **Python version:** pinned to 3.12 (`.python-version`), because the newer default on
+  the host lacked prebuilt packages and built very slowly.
+
+**Version 2 additions to the architecture:**
+
+- The chat is built from a chatbot, a row of chips, and an input box, so follow-up chips
+  can sit directly under each answer.
+- The system prompt asks the model to end each reply with a machine readable line of
+  follow-up questions. The app removes that line from the visible text, even while
+  streaming, and turns it into chips. No second model call is made.
+- Fee and timeline figures live in one module (`fees.py`). The knowledge base and the
+  quick reference table both read from it.
+- The document checklists live in a separate content module (`checklists.py`) and use
+  only verified facts. Where the notes are silent, the checklist says to check the
+  official site.
 
 ---
 
@@ -266,6 +294,10 @@ with the language model's own knowledge, and an optional live web search tool.
 | Free tier rate limit during demo | Medium | Keep the demo focused, and have backup screenshots ready. |
 | Live service failure during judging | Medium | Graceful error message in the app, plus recorded or screenshot backup of the demo. |
 | Users share sensitive data | Medium | The bot warns users not to share sensitive numbers. |
+| Free daily model quota runs out during the demo | High | A new Google project has a small daily cap (20 requests a day was observed). Check the quota page before a demo, stop testing a few hours before, and use the backup screenshots if needed. |
+| Live web search needs a billing account | Medium | The feature is built but off by default. It can be switched on once billing is linked. |
+| Free host sleeps when idle | Medium | Open the link a few minutes before the demo. The first load after a quiet period can take about a minute. |
+| Model retired or renamed mid project | Medium | Check the model name before every demo. The app shows the exact error from the API, and the model name is a single setting in app.py. |
 
 ---
 
@@ -273,14 +305,34 @@ with the language model's own knowledge, and an optional live web search tool.
 
 1. **Topic and scope locked.** Complete.
 2. **Pitch deck prepared.** Complete.
-3. **Knowledge base drafted and verified.** In progress.
+3. **Knowledge base drafted and verified.** Complete. Fees and timelines were researched
+   from official sites and cross checked sources, and kept in one fee module.
 4. **Base chatbot built and tested.** Complete.
-5. **Optional web search grounding added.** Planned.
-6. **Code uploaded to GitHub.** Planned.
-7. **Deployed to Hugging Face Spaces with public link.** Planned.
+5. **Optional web search grounding added.** Complete, off by default (needs billing).
+6. **Code uploaded to GitHub.** Complete.
+7. **Deployed with a public link.** Complete on Render (see section 10). Hugging Face
+   Spaces was the original plan but became a paid option for this app.
 8. **Demo rehearsed with backup screenshots.** Planned.
+9. **Version 2 improvements built and tested.** Complete (see the Version 2 section below).
 
 ---
+
+## 16A. Version 2 Changes
+
+Version 2 keeps the same scope and the same free tier design, and adds a visual upgrade
+plus features that make the app easier to use:
+
+- **Look and feel:** a Pakistan identity colour theme, a clear hero header with the Urdu
+  name, the Inter font with an Urdu script fallback, a footer, and a phone width layout.
+- **Quick help:** category chips for common topics, an official links and helpline panel,
+  a fee and timeline reference, and a copy button on answers.
+- **Follow-up suggestions:** after each answer, up to three follow-up questions appear as
+  chips in the same language as the question.
+- **Document checklists:** a generator for ten services (New CNIC, CNIC renewal, CNIC
+  modification, lost or duplicate CNIC, child B-Form, FRC, new passport, passport renewal,
+  child passport, and NICOP), with a plain text download.
+- **Unchanged rules:** no database, no stored personal data, no RAG, the same golden
+  rules, and the same two department distinction between NADRA and DGIP.
 
 ## 17. Future Roadmap
 
