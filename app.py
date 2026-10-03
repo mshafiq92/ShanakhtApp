@@ -267,6 +267,19 @@ def make_checklist(service):
     return text, f.name
 
 
+def user_turn(message, history):
+    history = list(history or [])
+    if not (message or "").strip():
+        return "", history, *followup_updates([])
+    return "", history + [{"role": "user", "content": message}], *followup_updates([])
+
+
+def bot_turn(history):
+    prior, question = history[:-1], history[-1]["content"]
+    for text, *chips in respond(question, prior):
+        yield [*prior, {"role": "assistant", "content": text}], *chips
+
+
 DESCRIPTION = (
     "Ask about CNIC (NADRA) and passport (DGIP): types, documents, fees, renewal, "
     "modification, overseas ID, tracking, and safety tips. You can ask in Urdu or English. "
@@ -389,16 +402,6 @@ CUSTOM_CSS = """
 }
 """
 
-# Clicking a follow-up chip fills the input, then presses Enter in it so the question is sent.
-SUBMIT_CHIP_JS = """
-() => {
-    const box = document.querySelector('#chat-input textarea');
-    if (box) {
-        box.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
-    }
-}
-"""
-
 # A simple inline ID-card icon (no separate image file, so nothing extra to upload or
 # host when deploying). `currentColor` makes it inherit the surrounding text color, so
 # it stays legible in both light and dark themes automatically.
@@ -472,39 +475,35 @@ with gr.Blocks(
             (question, gr.Button(label, size="sm", variant="secondary", elem_classes="category-chip"))
             for label, question in CATEGORY_CHIPS.items()
         ]
-    message_box = gr.Textbox(
+    chatbot = gr.Chatbot(
+        placeholder=CHATBOT_PLACEHOLDER,
+        label="Shanakht",
+        show_label=False,
+        min_height=320,
+        buttons=["copy"],
+    )
+    with gr.Row(elem_id="followup-chips"):
+        followup_btns = [
+            gr.Button(size="sm", variant="secondary", visible=False, elem_classes="followup-chip")
+            for _ in range(MAX_FOLLOWUPS)
+        ]
+    msg = gr.Textbox(
         show_label=False,
         placeholder="Type your question here...",
         submit_btn=True,
-        stop_btn=True,
         elem_id="chat-input",
-        render=False,
     )
-    followup_btns = [
-        gr.Button(size="sm", variant="secondary", visible=False, render=False, elem_classes="followup-chip")
-        for _ in range(MAX_FOLLOWUPS)
-    ]
-    gr.ChatInterface(
-        fn=respond,
-        chatbot=gr.Chatbot(
-            placeholder=CHATBOT_PLACEHOLDER,
-            label="Shanakht",
-            show_label=False,
-            min_height=320,
-            buttons=["copy"],
-        ),
-        textbox=message_box,
-        examples=EXAMPLES,
-        additional_outputs=followup_btns,
+    gr.Examples(examples=[[example] for example in EXAMPLES], inputs=msg)
+
+    msg.submit(user_turn, [msg, chatbot], [msg, chatbot, *followup_btns], queue=False).then(
+        bot_turn, chatbot, [chatbot, *followup_btns]
     )
-    with gr.Row(elem_id="followup-chips"):
-        for btn in followup_btns:
-            btn.render()
-            btn.click(lambda q: q, inputs=btn, outputs=message_box).then(
-                fn=None, js=SUBMIT_CHIP_JS
-            )
+    for btn in followup_btns:
+        btn.click(user_turn, [btn, chatbot], [msg, chatbot, *followup_btns], queue=False).then(
+            bot_turn, chatbot, [chatbot, *followup_btns]
+        )
     for question, button in chip_buttons:
-        button.click(lambda q=question: q, inputs=None, outputs=message_box)
+        button.click(lambda q=question: q, inputs=None, outputs=msg)
     with gr.Accordion("Official links and helpline", open=False):
         gr.Markdown(OFFICIAL_LINKS_MD)
     with gr.Accordion("Document checklist generator", open=False):

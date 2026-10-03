@@ -148,6 +148,27 @@ class RespondTests(unittest.TestCase):
         self.assertFalse(chips[2]["visible"])
 
 
+class ChatTurnTests(unittest.TestCase):
+    def test_empty_message_is_ignored(self):
+        out = app.user_turn("   ", [])
+        self.assertEqual(out[0], "")
+        self.assertEqual(out[1], [])
+
+    def test_turn_adds_question_then_answer_with_chips(self):
+        history = app.user_turn("hi", [])[1]
+        self.assertEqual(history, [{"role": "user", "content": "hi"}])
+        client = MagicMock()
+        client.models.generate_content_stream.return_value = iter(
+            [make_chunk("Hello. [[FOLLOWUPS]] Next? | Later?")]
+        )
+        with patch("app.get_client", return_value=client):
+            outputs = list(app.bot_turn(history))
+        final_history, *chips = outputs[-1]
+        self.assertEqual(final_history[-1], {"role": "assistant", "content": "Hello."})
+        self.assertEqual(chips[0]["value"], "Next?")
+        self.assertEqual(chips[1]["value"], "Later?")
+
+
 class FollowupParsingTests(unittest.TestCase):
     def test_valid_line_gives_up_to_three_questions(self):
         visible, qs = app.split_followups("Answer.\n[[FOLLOWUPS]] a? | b? | c? | d?")
