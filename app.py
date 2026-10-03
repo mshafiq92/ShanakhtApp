@@ -235,6 +235,17 @@ EXAMPLES = [
     "Urgent passport ki fee kitni hai?",
 ]
 
+# Chip label -> starter question that fills the input when clicked.
+CATEGORY_CHIPS = {
+    "CNIC": "How do I apply for a new CNIC?",
+    "Passport": "How do I apply for a new passport?",
+    "Smart Card": "What is a Smart CNIC and how do I get one?",
+    "Overseas (NICOP and POC)": "How can I get a NICOP while living abroad?",
+    "Fees": "What are the current CNIC and passport fees?",
+    "Tracking": "How do I track my CNIC or passport application?",
+    "Safety": "What safety tips should I follow with my CNIC and passport?",
+}
+
 # Gradio hardcodes the chat panel to `direction: ltr`, which misrenders Urdu script
 # (right-to-left) since replies mix English and Urdu in the same conversation.
 # `unicode-bidi: plaintext` makes each message's direction follow its own text instead
@@ -251,6 +262,9 @@ CUSTOM_CSS = """
 }
 .message-wrap .bot, .message-wrap .user {
     text-align: start !important;
+}
+.category-chip button {
+    border-radius: 999px !important;
 }
 """
 
@@ -280,7 +294,18 @@ GOLD = gr.themes.Color(
     c400="#D8B840", c500="#C9A227", c600="#A8841E", c700="#86681A",
     c800="#654E15", c900="#463611", c950="#2A2109", name="shanakht-gold",
 )
-BRAND_THEME = gr.themes.Soft(primary_hue=GREEN, secondary_hue=GOLD, neutral_hue="slate")
+BRAND_THEME = gr.themes.Soft(
+    primary_hue=GREEN,
+    secondary_hue=GOLD,
+    neutral_hue="slate",
+    font=[
+        gr.themes.GoogleFont("Inter"),
+        gr.themes.GoogleFont("Noto Sans Arabic"),
+        gr.themes.Font("ui-sans-serif"),
+        gr.themes.Font("system-ui"),
+        gr.themes.Font("sans-serif"),
+    ],
+)
 
 HEADER_HTML = f"""
 <div style="
@@ -306,8 +331,17 @@ HEADER_HTML = f"""
 </div>
 """
 
-with gr.Blocks(title="Shanakht (شناخت): CNIC & Passport Assistant") as demo:
+with gr.Blocks(
+    title="Shanakht (شناخت): CNIC & Passport Assistant",
+    analytics_enabled=False,
+) as demo:
     gr.HTML(HEADER_HTML)
+    with gr.Row():
+        chip_buttons = [
+            (question, gr.Button(label, size="sm", variant="secondary", elem_classes="category-chip"))
+            for label, question in CATEGORY_CHIPS.items()
+        ]
+    message_box = gr.Textbox(show_label=False, placeholder="Type your question here...", render=False)
     gr.ChatInterface(
         fn=respond,
         chatbot=gr.Chatbot(
@@ -316,8 +350,11 @@ with gr.Blocks(title="Shanakht (شناخت): CNIC & Passport Assistant") as demo
             show_label=False,
             min_height=320,
         ),
+        textbox=message_box,
         examples=EXAMPLES,
     )
+    for question, button in chip_buttons:
+        button.click(lambda q=question: q, inputs=None, outputs=message_box)
 
 if __name__ == "__main__":
     # 0.0.0.0 + the platform's PORT env var is required on hosts like Render or Cloud
