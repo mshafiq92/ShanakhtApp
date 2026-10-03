@@ -17,6 +17,7 @@ import gradio as gr
 from google import genai
 from google.genai import types
 from knowledge import KNOWLEDGE
+from fees import CNIC_CATEGORIES, CNIC_COURIER_FEE, PASSPORT_TIMELINES, rs
 
 
 def _load_dotenv():
@@ -253,6 +254,25 @@ OFFICIAL_LINKS = [
     ("CNIC tracking", "https://id.nadra.gov.pk"),
 ]
 NADRA_HELPLINE = "1777"
+CNIC_FEE_TABLE_MD = (
+    "**CNIC (NADRA)**\n\n"
+    "| Category | Fee | Timeline |\n"
+    "|---|---|---|\n"
+    + "\n".join(
+        f"| {name} | {rs(info['fee'])} | {info['timeline']} |"
+        for name, info in CNIC_CATEGORIES.items()
+    )
+    + f"\n\nCourier delivery: {rs(CNIC_COURIER_FEE)}. A first-ever CNIC is free under Normal "
+    "processing. Verify on nadra.gov.pk before paying, since fees change."
+)
+PASSPORT_FEE_TABLE_MD = (
+    "**Passport (DGIP)**\n\n"
+    "| Category | Timeline |\n"
+    "|---|---|\n"
+    + "\n".join(f"| {name} | {timeline} |" for name, timeline in PASSPORT_TIMELINES.items())
+    + "\n\nThe exact fee depends on validity (5 or 10 years) and page count (36, 72, or 100). "
+    "Verify the current figure on dgip.gov.pk before paying, since fees change."
+)
 OFFICIAL_LINKS_MD = (
     "\n".join(f"- [{label}]({url})" for label, url in OFFICIAL_LINKS)
     + f"\n- NADRA helpline: {NADRA_HELPLINE}\n\n"
@@ -370,6 +390,9 @@ with gr.Blocks(
         button.click(lambda q=question: q, inputs=None, outputs=message_box)
     with gr.Accordion("Official links and helpline", open=False):
         gr.Markdown(OFFICIAL_LINKS_MD)
+    with gr.Accordion("Fee and timeline quick reference", open=False):
+        gr.Markdown(CNIC_FEE_TABLE_MD)
+        gr.Markdown(PASSPORT_FEE_TABLE_MD)
 
 if __name__ == "__main__":
     # 0.0.0.0 + the platform's PORT env var is required on hosts like Render or Cloud

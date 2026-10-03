@@ -141,5 +141,23 @@ class SystemPromptTests(unittest.TestCase):
         self.assertIn("B-FORM", app.SYSTEM_PROMPT)
 
 
+class FeeSourceTests(unittest.TestCase):
+    def test_knowledge_text_uses_fee_figures(self):
+        from fees import CNIC_CATEGORIES, PASSPORT_MRP_FEES, rs
+        import knowledge
+
+        for info in CNIC_CATEGORIES.values():
+            self.assertIn(rs(info["fee"]), knowledge.KNOWLEDGE)
+        self.assertIn(rs(PASSPORT_MRP_FEES[5][36][0]), knowledge.KNOWLEDGE)
+
+    def test_quick_reference_tables_use_fee_figures(self):
+        from fees import CNIC_CATEGORIES, rs
+
+        for info in CNIC_CATEGORIES.values():
+            self.assertIn(rs(info["fee"]), app.CNIC_FEE_TABLE_MD)
+        self.assertIn("nadra.gov.pk", app.CNIC_FEE_TABLE_MD)
+        self.assertIn("dgip.gov.pk", app.PASSPORT_FEE_TABLE_MD)
+
+
 if __name__ == "__main__":
     unittest.main()

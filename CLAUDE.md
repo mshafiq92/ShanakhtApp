@@ -35,9 +35,11 @@ prompt. No RAG, no database, no user accounts.
 6. **No sensitive data.** Never ask the user for a CNIC number, passport number, OTP, or
    password. If a user shares one, gently remind them not to share sensitive numbers.
    Do not add any feature that stores or logs user-submitted personal data.
-7. **No RAG, no database.** The knowledge base is a single plain-text Python string in
-   `knowledge.py`, editable by a non-developer. Do not introduce a vector store, external
-   document corpus, or persistence layer as part of the hackathon scope.
+7. **No RAG, no database.** The knowledge base is a plain-text Python string in
+   `knowledge.py`, editable by a non-developer. Fee and timeline numbers live in
+   `fees.py` (plain dictionaries), and `knowledge.py` and the app's quick reference table
+   both read from there, so a fee changes in one place. Do not introduce a vector store,
+   external document corpus, or persistence layer as part of the hackathon scope.
 8. **Keep it a helper, not an authority.** Shanakht does not process applications, take
    payments, or give legal rulings. Do not add features that imply otherwise.
 
@@ -52,8 +54,8 @@ instead of silently resolving it.
 - Never put an API key in code, docs, or git history. `GEMINI_API_KEY` is an environment
   variable locally and a Space secret on Hugging Face — nowhere else.
 - Keep `requirements.txt` minimal; only add a package if the task truly needs it.
-- `knowledge.py` is content, not code — prefer asking the user for verified figures over
-  editing its facts yourself.
+- `knowledge.py` is content, not code. Prefer asking the user for verified figures over
+  editing its facts yourself. Fee numbers are edited in `fees.py`.
 - This is a free-tier demo app: keep dependencies and architecture simple enough to run
   on a free hosting tier without extra services. Deployment target is Render (see below),
   not Hugging Face Spaces — HF now requires a paid plan for a Gradio SDK Space.
