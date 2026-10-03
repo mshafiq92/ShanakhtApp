@@ -90,6 +90,11 @@ HARD RULES:
    other sensitive personal data. If a user shares such a number, gently remind them not to
    share sensitive numbers in a chat.
 8. Be polite and respectful.
+9. Follow-up suggestions: end EVERY answer with one final line, on its own, in this exact
+   form: [[FOLLOWUPS]] question one | question two | question three
+   Give up to three short follow-up questions the user might ask next, in the same language
+   as the user's question. Never put the | character inside a question. If there is no
+   useful follow-up, write the line with nothing after the marker.
 
 KNOWLEDGE BASE:
 {KNOWLEDGE}
@@ -176,8 +181,44 @@ def extract_sources(grounding_metadata):
     return "\n\n**Sources:**\n" + "\n".join(links)
 
 
+FOLLOWUP_MARKER = "[[FOLLOWUPS]]"
+MAX_FOLLOWUPS = 3
+
+
+def split_followups(raw):
+    """Return (visible answer, follow-up questions) from a full model reply."""
+    idx = raw.find(FOLLOWUP_MARKER)
+    if idx == -1:
+        return raw.strip(), []
+    visible = raw[:idx].rstrip()
+    tail = raw[idx + len(FOLLOWUP_MARKER):].strip().split("\n")[0]
+    questions = [q.strip() for q in tail.split("|") if q.strip()][:MAX_FOLLOWUPS]
+    return visible, questions
+
+
+def visible_while_streaming(raw):
+    """Return the part of a partial reply that is safe to show, hiding any marker."""
+    idx = raw.find(FOLLOWUP_MARKER)
+    if idx != -1:
+        return raw[:idx].rstrip()
+    for k in range(len(FOLLOWUP_MARKER) - 1, 0, -1):
+        if raw.endswith(FOLLOWUP_MARKER[:k]):
+            return raw[:-k]
+    return raw
+
+
+def followup_updates(questions):
+    updates = []
+    for i in range(MAX_FOLLOWUPS):
+        if i < len(questions):
+            updates.append(gr.update(value=questions[i], visible=True))
+        else:
+            updates.append(gr.update(value="", visible=False))
+    return tuple(updates)
+
+
 def respond(message, history):
-    """Stream the assistant reply token by token."""
+    """Stream the reply, then show follow-up chips. Yields (text, *chip updates)."""
     contents = to_gemini_contents(history, message)
     config = types.GenerateContentConfig(
         system_instruction=SYSTEM_PROMPT,
@@ -191,27 +232,28 @@ def respond(message, history):
             contents=contents,
             config=config,
         )
-        partial = ""
+        raw = ""
         grounding_metadata = None
         for chunk in stream:
             if getattr(chunk, "text", None):
-                partial += chunk.text
-                yield partial
+                raw += chunk.text
+                yield (visible_while_streaming(raw), *followup_updates([]))
             for candidate in getattr(chunk, "candidates", None) or []:
                 gm = getattr(candidate, "grounding_metadata", None)
                 if gm:
                     grounding_metadata = gm
-        if not partial:
-            yield "Sorry, I could not generate an answer. Please try rephrasing."
+        visible, questions = split_followups(raw)
+        if not visible:
+            yield ("Sorry, I could not generate an answer. Please try rephrasing.", *followup_updates([]))
         else:
             sources = extract_sources(grounding_metadata)
-            if sources:
-                yield partial + sources
+            yield (visible + sources, *followup_updates(questions))
     except Exception as e:  # keep the demo alive even if the API call fails
         yield (
             "Sorry, something went wrong while contacting the AI service. "
             "Please try again in a moment.\n\n"
-            f"(Technical detail: {e})"
+            f"(Technical detail: {e})",
+            *followup_updates([]),
         )
 
 
@@ -317,8 +359,12 @@ CUSTOM_CSS = """
 .message-wrap .bot, .message-wrap .user {
     text-align: start !important;
 }
-.category-chip button {
+.category-chip button, .followup-chip button {
     border-radius: 999px !important;
+}
+#followup-chips {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
 }
 #category-chips {
     flex-wrap: wrap !important;
@@ -339,6 +385,16 @@ CUSTOM_CSS = """
     .category-chip button {
         font-size: 0.8rem !important;
         padding: 4px 10px !important;
+    }
+}
+"""
+
+# Clicking a follow-up chip fills the input, then presses Enter in it so the question is sent.
+SUBMIT_CHIP_JS = """
+() => {
+    const box = document.querySelector('#chat-input textarea');
+    if (box) {
+        box.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', code: 'Enter', keyCode: 13, bubbles: true}));
     }
 }
 """
@@ -421,8 +477,13 @@ with gr.Blocks(
         placeholder="Type your question here...",
         submit_btn=True,
         stop_btn=True,
+        elem_id="chat-input",
         render=False,
     )
+    followup_btns = [
+        gr.Button(size="sm", variant="secondary", visible=False, render=False, elem_classes="followup-chip")
+        for _ in range(MAX_FOLLOWUPS)
+    ]
     gr.ChatInterface(
         fn=respond,
         chatbot=gr.Chatbot(
@@ -434,7 +495,14 @@ with gr.Blocks(
         ),
         textbox=message_box,
         examples=EXAMPLES,
+        additional_outputs=followup_btns,
     )
+    with gr.Row(elem_id="followup-chips"):
+        for btn in followup_btns:
+            btn.render()
+            btn.click(lambda q: q, inputs=btn, outputs=message_box).then(
+                fn=None, js=SUBMIT_CHIP_JS
+            )
     for question, button in chip_buttons:
         button.click(lambda q=question: q, inputs=None, outputs=message_box)
     with gr.Accordion("Official links and helpline", open=False):

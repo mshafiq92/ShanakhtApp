@@ -104,7 +104,7 @@ class RespondTests(unittest.TestCase):
         client = self._mock_stream([make_chunk("Hello "), make_chunk("there.")])
         with patch("app.get_client", return_value=client):
             out = list(app.respond("hi", []))
-        self.assertEqual(out[-1], "Hello there.")
+        self.assertEqual(out[-1][0], "Hello there.")
 
     def test_reply_with_grounding_appends_sources(self):
         web = types.SimpleNamespace(uri="https://dgip.gov.pk", title="DGIP")
@@ -112,22 +112,61 @@ class RespondTests(unittest.TestCase):
         client = self._mock_stream([make_chunk("Answer.", grounding_metadata=gm)])
         with patch("app.get_client", return_value=client):
             out = list(app.respond("hi", []))
-        self.assertIn("Sources", out[-1])
-        self.assertIn("dgip.gov.pk", out[-1])
+        self.assertIn("Sources", out[-1][0])
+        self.assertIn("dgip.gov.pk", out[-1][0])
 
     def test_api_error_shows_friendly_message_not_a_crash(self):
         client = MagicMock()
         client.models.generate_content_stream.side_effect = RuntimeError("boom")
         with patch("app.get_client", return_value=client):
             out = list(app.respond("hi", []))
-        self.assertIn("something went wrong", out[-1])
+        self.assertIn("something went wrong", out[-1][0])
 
     def test_missing_api_key_is_handled_gracefully(self):
         with patch.dict(os.environ, {}, clear=False):
             os.environ.pop("GEMINI_API_KEY", None)
             app._client = None
             out = list(app.respond("hi", []))
-        self.assertIn("something went wrong", out[-1])
+        self.assertIn("something went wrong", out[-1][0])
+
+    def test_followup_chips_appear_and_marker_never_shown(self):
+        client = self._mock_stream(
+            [
+                make_chunk("Renew online. [[FOLLOW"),
+                make_chunk("UPS]] How much is the fee? | Where do I collect it?"),
+            ]
+        )
+        with patch("app.get_client", return_value=client):
+            out = list(app.respond("hi", []))
+        for text, *_ in out:
+            self.assertNotIn("[[", text)
+            self.assertNotIn("FOLLOWUPS", text)
+        final_text, *chips = out[-1]
+        self.assertEqual(final_text, "Renew online.")
+        self.assertEqual(chips[0]["value"], "How much is the fee?")
+        self.assertEqual(chips[1]["value"], "Where do I collect it?")
+        self.assertFalse(chips[2]["visible"])
+
+
+class FollowupParsingTests(unittest.TestCase):
+    def test_valid_line_gives_up_to_three_questions(self):
+        visible, qs = app.split_followups("Answer.\n[[FOLLOWUPS]] a? | b? | c? | d?")
+        self.assertEqual(visible, "Answer.")
+        self.assertEqual(qs, ["a?", "b?", "c?"])
+
+    def test_missing_line_gives_no_chips(self):
+        visible, qs = app.split_followups("Just an answer.")
+        self.assertEqual(visible, "Just an answer.")
+        self.assertEqual(qs, [])
+
+    def test_empty_or_malformed_line_gives_no_chips(self):
+        self.assertEqual(app.split_followups("Answer.\n[[FOLLOWUPS]]")[1], [])
+        self.assertEqual(app.split_followups("Answer.\n[[FOLLOWUPS]] | | ")[1], [])
+
+    def test_partial_marker_is_held_back_while_streaming(self):
+        self.assertEqual(app.visible_while_streaming("Hi [[FOLLOW").rstrip(), "Hi")
+        self.assertEqual(app.visible_while_streaming("Hi [").rstrip(), "Hi")
+        self.assertEqual(app.visible_while_streaming("Hi there"), "Hi there")
 
 
 class SystemPromptTests(unittest.TestCase):
