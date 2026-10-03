@@ -10,9 +10,51 @@ Rules for good content:
     public sources. Re-verify before a real deployment, since these figures change.
   - Keep it plain and simple. The model will translate to Urdu automatically.
   - The more accurate and complete this text is, the better the bot answers.
+  - Fee and timeline numbers live in fees.py. Change them there, not here.
 """
 
-KNOWLEDGE = """
+from fees import (
+    CNIC_CATEGORIES,
+    CNIC_COURIER_FEE,
+    PASSPORT_EPASSPORT_FEES,
+    PASSPORT_FAST_TRACK_FEES,
+    PASSPORT_MRP_FEES,
+    PASSPORT_TIMELINES,
+    rs,
+)
+
+_CNIC_FEE_LINES = "\n".join(
+    f"{name} ({info['timeline']}): {rs(info['fee'])}." for name, info in CNIC_CATEGORIES.items()
+)
+_PASSPORT_TIMELINE_LINES = "\n".join(
+    f"{name}: {timeline}" for name, timeline in PASSPORT_TIMELINES.items()
+)
+_MRP_LINES = "\n".join(
+    f"MRP, {years}-year validity: "
+    + "; ".join(
+        f"{pages} pages {rs(normal)} Normal / {rs(urgent)} Urgent"
+        for pages, (normal, urgent) in by_pages.items()
+    )
+    + "."
+    for years, by_pages in PASSPORT_MRP_FEES.items()
+)
+_FAST_TRACK_LINES = "\n".join(
+    f"Fast Track, {years}-year validity: "
+    + ", ".join(f"{pages} pages {rs(fee)}" for pages, fee in by_pages.items())
+    + "."
+    for years, by_pages in PASSPORT_FAST_TRACK_FEES.items()
+)
+_EPASSPORT_LINES = "\n".join(
+    f"e-passport, {years}-year validity: "
+    + "; ".join(
+        f"{pages} pages {rs(normal)} Normal / {rs(urgent)} Urgent"
+        for pages, (normal, urgent) in by_pages.items()
+    )
+    + "."
+    for years, by_pages in PASSPORT_EPASSPORT_FEES.items()
+)
+
+KNOWLEDGE = f"""
 === CNIC (issued by NADRA) ===
 
 WHAT IS A CNIC
@@ -46,10 +88,8 @@ Apply for a duplicate at an NRC or online. Report a lost card quickly.
 FEES AND TIMELINES (CNIC)
 A first-ever CNIC for a new applicant is free of cost under Normal processing.
 For a new Smart NIC, renewal, duplicate, or modification, three categories apply:
-Normal (about 30 days): Rs 750.
-Urgent (about 12 days): Rs 1,500.
-Executive (about 7 days): Rs 2,500.
-Courier delivery (if not collected in person from the NADRA Registration Center): Rs 165.
+{_CNIC_FEE_LINES}
+Courier delivery (if not collected in person from the NADRA Registration Center): {rs(CNIC_COURIER_FEE)}.
 Processing time starts only after fee payment is confirmed. Always verify the current
 figures on nadra.gov.pk before paying, since fees can change.
 
@@ -97,20 +137,16 @@ CHILD PASSPORT
 Uses the child's B-Form and parents' documents.
 
 FEES AND TIMELINES (PASSPORT)
-Three processing categories: Normal (about 21 working days), Urgent (about 5 working
-days), and Fast Track (about 2 working days, available at Executive Passport Offices in
-major cities). Courier delivery time to remote areas is on top of these timelines.
+Three processing categories, with their timelines:
+{_PASSPORT_TIMELINE_LINES}
+Fast Track is available at Executive Passport Offices in major cities. Courier delivery
+time to remote areas is on top of these timelines.
 
-Machine Readable Passport (MRP), 5-year validity: 36 pages Rs 4,500 Normal / Rs 7,500
-Urgent; 72 pages Rs 8,200 Normal / Rs 13,500 Urgent; 100 pages Rs 9,000 Normal / Rs 18,000
-Urgent.
-MRP, 10-year validity: 36 pages Rs 6,700 Normal / Rs 11,200 Urgent; 72 pages Rs 12,400
-Normal / Rs 20,200 Urgent; 100 pages Rs 13,500 Normal / Rs 27,000 Urgent.
-Fast Track fee (by page count): roughly Rs 12,500 to Rs 23,000 for 5-year validity, and
-Rs 16,200 to Rs 32,000 for 10-year validity.
-e-passport fee (by page count): roughly Rs 9,000 to Rs 16,500 for 5-year validity, and
-Rs 13,500 to Rs 24,750 for 10-year validity.
-Always verify the exact current figure for your chosen validity and page count on
+{_MRP_LINES}
+{_FAST_TRACK_LINES}
+{_EPASSPORT_LINES}
+The 100 page e-passport fee is not published in the sources checked, so check dgip.gov.pk
+for it. Always verify the exact current figure for your chosen validity and page count on
 dgip.gov.pk before paying, since fees can change.
 
 === COMMON QUESTIONS ===

@@ -17,6 +17,9 @@ import gradio as gr
 from google import genai
 from google.genai import types
 from knowledge import KNOWLEDGE
+from fees import CNIC_CATEGORIES, CNIC_COURIER_FEE, PASSPORT_TIMELINES, rs
+from checklists import SERVICE_NAMES, build_checklist
+import tempfile
 
 
 def _load_dotenv():
@@ -87,6 +90,11 @@ HARD RULES:
    other sensitive personal data. If a user shares such a number, gently remind them not to
    share sensitive numbers in a chat.
 8. Be polite and respectful.
+9. Follow-up suggestions: end EVERY answer with one final line, on its own, in this exact
+   form: [[FOLLOWUPS]] question one | question two | question three
+   Give up to three short follow-up questions the user might ask next, in the same language
+   as the user's question. Never put the | character inside a question. If there is no
+   useful follow-up, write the line with nothing after the marker.
 
 KNOWLEDGE BASE:
 {KNOWLEDGE}
@@ -173,8 +181,44 @@ def extract_sources(grounding_metadata):
     return "\n\n**Sources:**\n" + "\n".join(links)
 
 
+FOLLOWUP_MARKER = "[[FOLLOWUPS]]"
+MAX_FOLLOWUPS = 3
+
+
+def split_followups(raw):
+    """Return (visible answer, follow-up questions) from a full model reply."""
+    idx = raw.find(FOLLOWUP_MARKER)
+    if idx == -1:
+        return raw.strip(), []
+    visible = raw[:idx].rstrip()
+    tail = raw[idx + len(FOLLOWUP_MARKER):].strip().split("\n")[0]
+    questions = [q.strip() for q in tail.split("|") if q.strip()][:MAX_FOLLOWUPS]
+    return visible, questions
+
+
+def visible_while_streaming(raw):
+    """Return the part of a partial reply that is safe to show, hiding any marker."""
+    idx = raw.find(FOLLOWUP_MARKER)
+    if idx != -1:
+        return raw[:idx].rstrip()
+    for k in range(len(FOLLOWUP_MARKER) - 1, 0, -1):
+        if raw.endswith(FOLLOWUP_MARKER[:k]):
+            return raw[:-k]
+    return raw
+
+
+def followup_updates(questions):
+    updates = []
+    for i in range(MAX_FOLLOWUPS):
+        if i < len(questions):
+            updates.append(gr.update(value=questions[i], visible=True))
+        else:
+            updates.append(gr.update(value="", visible=False))
+    return tuple(updates)
+
+
 def respond(message, history):
-    """Stream the assistant reply token by token."""
+    """Stream the reply, then show follow-up chips. Yields (text, *chip updates)."""
     contents = to_gemini_contents(history, message)
     config = types.GenerateContentConfig(
         system_instruction=SYSTEM_PROMPT,
@@ -188,28 +232,52 @@ def respond(message, history):
             contents=contents,
             config=config,
         )
-        partial = ""
+        raw = ""
         grounding_metadata = None
         for chunk in stream:
             if getattr(chunk, "text", None):
-                partial += chunk.text
-                yield partial
+                raw += chunk.text
+                yield (visible_while_streaming(raw), *followup_updates([]))
             for candidate in getattr(chunk, "candidates", None) or []:
                 gm = getattr(candidate, "grounding_metadata", None)
                 if gm:
                     grounding_metadata = gm
-        if not partial:
-            yield "Sorry, I could not generate an answer. Please try rephrasing."
+        visible, questions = split_followups(raw)
+        if not visible:
+            yield ("Sorry, I could not generate an answer. Please try rephrasing.", *followup_updates([]))
         else:
             sources = extract_sources(grounding_metadata)
-            if sources:
-                yield partial + sources
+            yield (visible + sources, *followup_updates(questions))
     except Exception as e:  # keep the demo alive even if the API call fails
         yield (
             "Sorry, something went wrong while contacting the AI service. "
             "Please try again in a moment.\n\n"
-            f"(Technical detail: {e})"
+            f"(Technical detail: {e})",
+            *followup_updates([]),
         )
+
+
+def make_checklist(service):
+    text = build_checklist(service)
+    slug = service.lower().replace(" ", "_").replace("(", "").replace(")", "")
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".txt", prefix=f"shanakht_{slug}_", delete=False, encoding="utf-8"
+    ) as f:
+        f.write(text)
+    return text, f.name
+
+
+def user_turn(message, history):
+    history = list(history or [])
+    if not (message or "").strip():
+        return "", history, *followup_updates([])
+    return "", history + [{"role": "user", "content": message}], *followup_updates([])
+
+
+def bot_turn(history):
+    prior, question = history[:-1], _extract_text(history[-1]["content"])
+    for text, *chips in respond(question, prior):
+        yield [*prior, {"role": "assistant", "content": text}], *chips
 
 
 DESCRIPTION = (
@@ -223,17 +291,69 @@ DESCRIPTION = (
 # of the "Shanakht" title, already shown in the header card above) since a taller
 # placeholder can get clipped in the chatbot's centered box on short mobile screens.
 CHATBOT_PLACEHOLDER = (
-    "Ask your question in **Urdu** or **English** — مجھ سے اردو یا انگریزی میں سوال پوچھیں۔"
+    "Ask your question in **Urdu** or **English**, مجھ سے اردو یا انگریزی میں سوال پوچھیں۔"
 )
 
-# A balanced mix of Urdu, Roman Urdu, and English, covering both CNIC and passport.
+# Two each in English, Urdu script, and Roman Urdu, covering CNIC and passport.
 EXAMPLES = [
     "How do I renew my expired CNIC?",
-    "میرا شناختی کارڈ گم ہو گیا ہے، میں کیا کروں؟",
     "What documents do I need for a new passport?",
+    "میرا شناختی کارڈ گم ہو گیا ہے، میں کیا کروں؟",
     "نیا پاسپورٹ بنوانے کا طریقہ کیا ہے؟",
+    "CNIC ki renewal ke liye kya documents chahiye?",
     "Urgent passport ki fee kitni hai?",
 ]
+
+# Chip label -> starter question that fills the input when clicked.
+CATEGORY_CHIPS = {
+    "CNIC": "How do I apply for a new CNIC?",
+    "Passport": "How do I apply for a new passport?",
+    "Smart Card": "What is a Smart CNIC and how do I get one?",
+    "NICOP & POC": "How can I get a NICOP while living abroad?",
+    "Fees": "What are the current CNIC and passport fees?",
+    "Tracking": "How do I track my CNIC or passport application?",
+    "Safety": "What safety tips should I follow with my CNIC and passport?",
+}
+
+OFFICIAL_LINKS = [
+    ("NADRA (CNIC)", "https://nadra.gov.pk"),
+    ("Pak-ID portal and app", "https://id.nadra.gov.pk"),
+    ("DGIP (passport)", "https://dgip.gov.pk"),
+    ("CNIC tracking", "https://id.nadra.gov.pk"),
+]
+NADRA_HELPLINE = "1777"
+FOOTER_MD = (
+    "Shanakht is a helper, not an official source. Always verify on nadra.gov.pk and "
+    "dgip.gov.pk.\n\n"
+    + " · ".join(f"[{label}]({url})" for label, url in OFFICIAL_LINKS[:3])
+    + f" · Helpline {NADRA_HELPLINE}\n\n"
+    "<small>Built by Team Shanakht for the PakAngels GenAI and Agentic AI Training Program "
+    "hackathon.</small>"
+)
+CNIC_FEE_TABLE_MD = (
+    "**CNIC (NADRA)**\n\n"
+    "| Category | Fee | Timeline |\n"
+    "|---|---|---|\n"
+    + "\n".join(
+        f"| {name} | {rs(info['fee'])} | {info['timeline']} |"
+        for name, info in CNIC_CATEGORIES.items()
+    )
+    + f"\n\nCourier delivery: {rs(CNIC_COURIER_FEE)}. A first-ever CNIC is free under Normal "
+    "processing. Verify on nadra.gov.pk before paying, since fees change."
+)
+PASSPORT_FEE_TABLE_MD = (
+    "**Passport (DGIP)**\n\n"
+    "| Category | Timeline |\n"
+    "|---|---|\n"
+    + "\n".join(f"| {name} | {timeline} |" for name, timeline in PASSPORT_TIMELINES.items())
+    + "\n\nThe exact fee depends on validity (5 or 10 years) and page count (36, 72, or 100). "
+    "Verify the current figure on dgip.gov.pk before paying, since fees change."
+)
+OFFICIAL_LINKS_MD = (
+    "\n".join(f"- [{label}]({url})" for label, url in OFFICIAL_LINKS)
+    + f"\n- NADRA helpline: {NADRA_HELPLINE}\n\n"
+    "Shanakht is a helper, not an official source. Always verify on the official sites."
+)
 
 # Gradio hardcodes the chat panel to `direction: ltr`, which misrenders Urdu script
 # (right-to-left) since replies mix English and Urdu in the same conversation.
@@ -251,6 +371,34 @@ CUSTOM_CSS = """
 }
 .message-wrap .bot, .message-wrap .user {
     text-align: start !important;
+}
+.category-chip button, .followup-chip button {
+    border-radius: 999px !important;
+}
+#followup-chips {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+}
+#category-chips {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+}
+@media (max-width: 480px) {
+    .gradio-container {
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+    .shanakht-hero {
+        padding: 14px !important;
+        gap: 10px !important;
+    }
+    .shanakht-hero .hero-title {
+        font-size: 1.25rem !important;
+    }
+    .category-chip button {
+        font-size: 0.8rem !important;
+        padding: 4px 10px !important;
+    }
 }
 """
 
@@ -270,46 +418,118 @@ LOGO_SVG = """
 </svg>
 """
 
+GREEN = gr.themes.Color(
+    c50="#EEF7F2", c100="#D5EDE0", c200="#AEDCC4", c300="#7CC4A0",
+    c400="#4DA97E", c500="#1B8A5A", c600="#177650", c700="#125F42",
+    c800="#0B4F32", c900="#093D28", c950="#05271A", name="shanakht-green",
+)
+GOLD = gr.themes.Color(
+    c50="#FBF7E8", c100="#F5ECC6", c200="#EDDC95", c300="#E3CA65",
+    c400="#D8B840", c500="#C9A227", c600="#A8841E", c700="#86681A",
+    c800="#654E15", c900="#463611", c950="#2A2109", name="shanakht-gold",
+)
+BRAND_THEME = gr.themes.Soft(
+    primary_hue=GREEN,
+    secondary_hue=GOLD,
+    neutral_hue="slate",
+    font=[
+        gr.themes.GoogleFont("Inter"),
+        gr.themes.GoogleFont("Noto Sans Arabic"),
+        gr.themes.Font("ui-sans-serif"),
+        gr.themes.Font("system-ui"),
+        gr.themes.Font("sans-serif"),
+    ],
+)
+
 HEADER_HTML = f"""
-<div style="
-    display:flex; align-items:flex-start; gap:14px;
-    padding:16px 20px; margin-bottom:6px;
-    background:var(--block-background-fill);
-    border:1px solid var(--block-border-color);
+<div class="shanakht-hero" style="
+    display:flex; align-items:center; gap:16px;
+    padding:20px 22px; margin-bottom:8px;
+    background:linear-gradient(135deg, #0B4F32 0%, #1B8A5A 100%);
+    border-bottom:3px solid #C9A227;
     border-radius:var(--block-radius, 12px);
+    color:#FFFFFF;
 ">
-  <div style="color:var(--body-text-color); margin-top:2px;">{LOGO_SVG}</div>
+  <div style="flex-shrink:0; color:#C9A227;">{LOGO_SVG}</div>
   <div>
-    <div style="font-size:1.4rem; font-weight:600; line-height:1.25;">Shanakht (شناخت)</div>
-    <div style="font-size:0.9rem; color:var(--body-text-color-subdued); margin:2px 0 8px;">
-      CNIC &amp; Passport Assistant
+    <div class="hero-title" style="font-size:1.6rem; font-weight:700; line-height:1.2;">
+      Shanakht <span style="font-weight:500;">(شناخت)</span>
     </div>
-    <div style="font-size:0.9rem; line-height:1.5; color:var(--body-text-color);">
+    <div style="font-size:0.95rem; opacity:0.9; margin:2px 0 8px;">
+      CNIC and Passport Assistant
+    </div>
+    <div style="font-size:0.9rem; line-height:1.5; opacity:0.95;">
       {DESCRIPTION}
     </div>
   </div>
 </div>
 """
 
-with gr.Blocks(title="Shanakht (شناخت): CNIC & Passport Assistant") as demo:
+with gr.Blocks(
+    title="Shanakht (شناخت): CNIC & Passport Assistant",
+    analytics_enabled=False,
+) as demo:
     gr.HTML(HEADER_HTML)
-    gr.ChatInterface(
-        fn=respond,
-        chatbot=gr.Chatbot(
-            placeholder=CHATBOT_PLACEHOLDER,
-            label="Shanakht",
-            show_label=False,
-            min_height=320,
-        ),
-        examples=EXAMPLES,
+    with gr.Row(elem_id="category-chips"):
+        chip_buttons = [
+            (question, gr.Button(label, size="sm", variant="secondary", elem_classes="category-chip"))
+            for label, question in CATEGORY_CHIPS.items()
+        ]
+    chatbot = gr.Chatbot(
+        placeholder=CHATBOT_PLACEHOLDER,
+        label="Shanakht",
+        show_label=False,
+        min_height=320,
+        buttons=["copy"],
     )
+    with gr.Row(elem_id="followup-chips"):
+        followup_btns = [
+            gr.Button(size="sm", variant="secondary", visible=False, elem_classes="followup-chip")
+            for _ in range(MAX_FOLLOWUPS)
+        ]
+    msg = gr.Textbox(
+        show_label=False,
+        placeholder="Type your question here...",
+        submit_btn=True,
+        elem_id="chat-input",
+    )
+    gr.Examples(examples=[[example] for example in EXAMPLES], inputs=msg)
+
+    msg.submit(user_turn, [msg, chatbot], [msg, chatbot, *followup_btns], queue=False).then(
+        bot_turn, chatbot, [chatbot, *followup_btns]
+    )
+    for btn in followup_btns:
+        btn.click(user_turn, [btn, chatbot], [msg, chatbot, *followup_btns], queue=False).then(
+            bot_turn, chatbot, [chatbot, *followup_btns]
+        )
+    for question, button in chip_buttons:
+        button.click(lambda q=question: q, inputs=None, outputs=msg)
+    with gr.Accordion("Official links and helpline", open=False):
+        gr.Markdown(OFFICIAL_LINKS_MD)
+    with gr.Accordion("Document checklist generator", open=False):
+        service_pick = gr.Dropdown(choices=SERVICE_NAMES, value=SERVICE_NAMES[0], label="Service")
+        generate_btn = gr.Button("Generate checklist", variant="primary")
+        checklist_text = gr.Textbox(
+            label="Checklist (English). You can paste any line into the chat to ask about it in Urdu.",
+            lines=18,
+            max_lines=30,
+            interactive=False,
+        )
+        download_btn = gr.DownloadButton("Download as .txt")
+        generate_btn.click(
+            fn=make_checklist, inputs=service_pick, outputs=[checklist_text, download_btn]
+        )
+    with gr.Accordion("Fee and timeline quick reference", open=False):
+        gr.Markdown(CNIC_FEE_TABLE_MD)
+        gr.Markdown(PASSPORT_FEE_TABLE_MD)
+    gr.Markdown(FOOTER_MD)
 
 if __name__ == "__main__":
     # 0.0.0.0 + the platform's PORT env var is required on hosts like Render or Cloud
     # Run, which route traffic to a container by port and expect it to listen on all
     # interfaces. Falls back to the usual local port when PORT isn't set.
     demo.launch(
-        theme=gr.themes.Soft(),
+        theme=BRAND_THEME,
         css=CUSTOM_CSS,
         server_name="0.0.0.0",
         server_port=int(os.environ.get("PORT", 7860)),
