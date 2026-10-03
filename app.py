@@ -227,12 +227,13 @@ CHATBOT_PLACEHOLDER = (
     "Ask your question in **Urdu** or **English**, مجھ سے اردو یا انگریزی میں سوال پوچھیں۔"
 )
 
-# A balanced mix of Urdu, Roman Urdu, and English, covering both CNIC and passport.
+# Two each in English, Urdu script, and Roman Urdu, covering CNIC and passport.
 EXAMPLES = [
     "How do I renew my expired CNIC?",
-    "میرا شناختی کارڈ گم ہو گیا ہے، میں کیا کروں؟",
     "What documents do I need for a new passport?",
+    "میرا شناختی کارڈ گم ہو گیا ہے، میں کیا کروں؟",
     "نیا پاسپورٹ بنوانے کا طریقہ کیا ہے؟",
+    "CNIC ki renewal ke liye kya documents chahiye?",
     "Urgent passport ki fee kitni hai?",
 ]
 
@@ -307,6 +308,27 @@ CUSTOM_CSS = """
 .category-chip button {
     border-radius: 999px !important;
 }
+#category-chips {
+    flex-wrap: wrap !important;
+    gap: 8px !important;
+}
+@media (max-width: 480px) {
+    .gradio-container {
+        padding-left: 12px !important;
+        padding-right: 12px !important;
+    }
+    .shanakht-hero {
+        padding: 14px !important;
+        gap: 10px !important;
+    }
+    .shanakht-hero .hero-title {
+        font-size: 1.25rem !important;
+    }
+    .category-chip button {
+        font-size: 0.8rem !important;
+        padding: 4px 10px !important;
+    }
+}
 """
 
 # A simple inline ID-card icon (no separate image file, so nothing extra to upload or
@@ -349,7 +371,7 @@ BRAND_THEME = gr.themes.Soft(
 )
 
 HEADER_HTML = f"""
-<div style="
+<div class="shanakht-hero" style="
     display:flex; align-items:center; gap:16px;
     padding:20px 22px; margin-bottom:8px;
     background:linear-gradient(135deg, #0B4F32 0%, #1B8A5A 100%);
@@ -359,7 +381,7 @@ HEADER_HTML = f"""
 ">
   <div style="flex-shrink:0; color:#C9A227;">{LOGO_SVG}</div>
   <div>
-    <div style="font-size:1.6rem; font-weight:700; line-height:1.2;">
+    <div class="hero-title" style="font-size:1.6rem; font-weight:700; line-height:1.2;">
       Shanakht <span style="font-weight:500;">(شناخت)</span>
     </div>
     <div style="font-size:0.95rem; opacity:0.9; margin:2px 0 8px;">
@@ -377,7 +399,7 @@ with gr.Blocks(
     analytics_enabled=False,
 ) as demo:
     gr.HTML(HEADER_HTML)
-    with gr.Row():
+    with gr.Row(elem_id="category-chips"):
         chip_buttons = [
             (question, gr.Button(label, size="sm", variant="secondary", elem_classes="category-chip"))
             for label, question in CATEGORY_CHIPS.items()
@@ -396,6 +418,7 @@ with gr.Blocks(
             label="Shanakht",
             show_label=False,
             min_height=320,
+            buttons=["copy"],
         ),
         textbox=message_box,
         examples=EXAMPLES,
