@@ -246,6 +246,19 @@ CATEGORY_CHIPS = {
     "Safety": "What safety tips should I follow with my CNIC and passport?",
 }
 
+OFFICIAL_LINKS = [
+    ("NADRA (CNIC)", "https://nadra.gov.pk"),
+    ("Pak-ID portal and app", "https://id.nadra.gov.pk"),
+    ("DGIP (passport)", "https://dgip.gov.pk"),
+    ("CNIC tracking", "https://id.nadra.gov.pk"),
+]
+NADRA_HELPLINE = "1777"
+OFFICIAL_LINKS_MD = (
+    "\n".join(f"- [{label}]({url})" for label, url in OFFICIAL_LINKS)
+    + f"\n- NADRA helpline: {NADRA_HELPLINE}\n\n"
+    "Shanakht is a helper, not an official source. Always verify on the official sites."
+)
+
 # Gradio hardcodes the chat panel to `direction: ltr`, which misrenders Urdu script
 # (right-to-left) since replies mix English and Urdu in the same conversation.
 # `unicode-bidi: plaintext` makes each message's direction follow its own text instead
@@ -355,6 +368,8 @@ with gr.Blocks(
     )
     for question, button in chip_buttons:
         button.click(lambda q=question: q, inputs=None, outputs=message_box)
+    with gr.Accordion("Official links and helpline", open=False):
+        gr.Markdown(OFFICIAL_LINKS_MD)
 
 if __name__ == "__main__":
     # 0.0.0.0 + the platform's PORT env var is required on hosts like Render or Cloud
